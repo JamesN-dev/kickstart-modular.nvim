@@ -1,6 +1,5 @@
 return {
-  -- Autocompletion
-  {
+  { -- Autocompletion
     'hrsh7th/nvim-cmp',
     event = 'InsertEnter',
     dependencies = {
@@ -46,6 +45,19 @@ return {
       local luasnip = require 'luasnip'
       luasnip.config.setup {}
 
+      -- Custom expand function
+      local M = {}
+      M.expand = function(fallback)
+        local suggestion = require 'supermaven-nvim.completion_preview'
+        if suggestion.has_suggestion() then
+          suggestion.on_accept_suggestion()
+        elseif luasnip.expand_or_jumpable() then
+          luasnip.expand_or_jump()
+        else
+          fallback()
+        end
+      end
+
       cmp.setup {
         snippet = {
           expand = function(args)
@@ -74,7 +86,7 @@ return {
           -- If you prefer more traditional completion keymaps,
           -- you can uncomment the following lines
           --['<CR>'] = cmp.mapping.confirm { select = true },
-          --['<Tab>'] = cmp.mapping.select_next_item(),
+          ['<Tab>'] = cmp.mapping(M.expand, { 'i', 's' }),
           --['<S-Tab>'] = cmp.mapping.select_prev_item(),
 
           -- Manually trigger a completion from nvim-cmp.

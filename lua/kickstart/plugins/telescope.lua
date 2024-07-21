@@ -1,10 +1,3 @@
--- NOTE: Plugins can specify dependencies.
---
--- The dependencies are proper plugin specifications as well - anything
--- you do for a plugin at the top level, you can do for a dependency.
---
--- Use the `dependencies` key to specify the dependencies of a particular plugin
-
 return {
   { -- Fuzzy Finder (files, lsp, etc)
     'nvim-telescope/telescope.nvim',
@@ -14,20 +7,12 @@ return {
       'nvim-lua/plenary.nvim',
       { -- If encountering errors, see telescope-fzf-native README for installation instructions
         'nvim-telescope/telescope-fzf-native.nvim',
-
-        -- `build` is used to run some command when the plugin is installed/updated.
-        -- This is only run then, not every time Neovim starts up.
         build = 'make',
-
-        -- `cond` is a condition used to determine whether this plugin should be
-        -- installed and loaded.
         cond = function()
           return vim.fn.executable 'make' == 1
         end,
       },
       { 'nvim-telescope/telescope-ui-select.nvim' },
-
-      -- Useful for getting pretty icons, but requires a Nerd Font.
       { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
     },
     config = function()
@@ -54,14 +39,13 @@ return {
       -- See `:help telescope` and `:help telescope.setup()`
       require('telescope').setup {
         -- You can put your default mappings / updates / etc. in here
-        --  All the info you're looking for is in `:help telescope.setup()`
-        --
-        -- defaults = {
-        --   mappings = {
-        --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
-        --   },
-        -- },
-        -- pickers = {}
+        -- All the info you're looking for is in `:help telescope.setup()`
+        defaults = {
+          mappings = {
+            i = { ['<c-enter>'] = 'to_fuzzy_refine' },
+          },
+        },
+        pickers = {},
         extensions = {
           ['ui-select'] = {
             require('telescope.themes').get_dropdown(),
@@ -88,7 +72,6 @@ return {
 
       -- Slightly advanced example of overriding default behavior and theme
       vim.keymap.set('n', '<leader>/', function()
-        -- You can pass additional configuration to Telescope to change the theme, layout, etc.
         builtin.current_buffer_fuzzy_find(require('telescope.themes').get_dropdown {
           winblend = 10,
           previewer = false,
@@ -96,7 +79,6 @@ return {
       end, { desc = '[/] Fuzzily search in current buffer' })
 
       -- It's also possible to pass additional configuration options.
-      --  See `:help telescope.builtin.live_grep()` for information about particular keys
       vim.keymap.set('n', '<leader>s/', function()
         builtin.live_grep {
           grep_open_files = true,
@@ -108,7 +90,43 @@ return {
       vim.keymap.set('n', '<leader>sn', function()
         builtin.find_files { cwd = vim.fn.stdpath 'config' }
       end, { desc = '[S]earch [N]eovim files' })
+
+      -- Add the custom GrepAndReplace command
+      vim.api.nvim_create_user_command('GrepAndReplace', function()
+        local search = vim.fn.input 'Search for (case-sensitive): '
+        local replace = vim.fn.input 'Replace with: '
+
+        -- Use Telescope to perform the search
+        require('telescope.builtin').live_grep {
+          default_text = search,
+          attach_mappings = function(_, map)
+            map('i', '<CR>', function(prompt_bufnr)
+              -- Get the selected entry from Telescope
+              local content = require('telescope.actions.state').get_selected_entry(prompt_bufnr)
+
+              -- Close the Telescope prompt
+              require('telescope.actions').close(prompt_bufnr)
+
+              -- Get the file path and line number from the entry
+              local file = content.filename
+              local lnum = content.lnum
+
+              -- Open the file and go to the line
+              vim.cmd('e ' .. file)
+              vim.fn.cursor(lnum, 1)
+
+              -- Perform the substitution with case-sensitive search
+              vim.cmd('%s/\\C' .. search .. '/' .. replace .. '/ge | update')
+
+              -- Go back to the previous buffer
+              vim.cmd 'b#'
+
+              return true
+            end)
+            return true
+          end,
+        }
+      end, {})
     end,
   },
 }
--- vim: ts=2 sts=2 sw=2 et
